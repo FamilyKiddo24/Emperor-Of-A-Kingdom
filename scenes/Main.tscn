@@ -1,0 +1,47 @@
+[gd_scene load_steps=8 format=3 uid="uid://buiv7la2t8dd1"]
+
+[ext_resource type="Script" uid="uid://cus1pq6tcbca4" path="res://scripts/BuildingSystem.gd" id="1_rvslj"]
+[ext_resource type="Script" uid="uid://mp8fxgpxofji" path="res://scripts/PlayerCamera.gd" id="2_0bbpv"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_rarhs"]
+size = Vector2(20, 20)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_vcsgt"]
+size = Vector3(20.0015, 1, 5.2302)
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_rvslj"]
+
+[sub_resource type="Sky" id="Sky_0bbpv"]
+sky_material = SubResource("ProceduralSkyMaterial_rvslj")
+
+[sub_resource type="Environment" id="Environment_rarhs"]
+background_mode = 2
+sky = SubResource("Sky_0bbpv")
+
+[node name="Node3D" type="Node3D" node_paths=PackedStringArray("grid_map", "camera")]
+script = ExtResource("1_rvslj")
+grid_map = NodePath("GridMap")
+camera = NodePath("Camera3D")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, 0.75, -0.433013, 0, 2.81745, 11.105)
+shadow_enabled = true
+
+[node name="GridMap" type="GridMap" parent="."]
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.81745, 11.105)
+script = ExtResource("2_0bbpv")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="."]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="StaticBody3D"]
+mesh = SubResource("PlaneMesh_rarhs")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D"]
+shape = SubResource("BoxShape3D_vcsgt")
+
+[node name="GridLines" type="Node3D" parent="."]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_rarhs")
