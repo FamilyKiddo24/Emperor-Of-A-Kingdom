@@ -42,6 +42,11 @@ func _physics_process(delta):
 	
 	input_dir = input_dir.normalized()
 	
+	if Input.is_action_pressed("sprint"):
+		move_speed = 10
+	else:
+		move_speed = 5
+	
 	if input_dir != Vector3.ZERO:
 		var direction = (transform.basis * Vector3(input_dir.x, 0, input_dir.z)).normalized()
 		position += direction * move_speed * delta

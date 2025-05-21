@@ -9,12 +9,19 @@ extends Node3D
 @export var cursor_offset := Vector3(0.5, 0.5, 0.5) # Centered offset for cursor
 @export var grid_size := Vector2i(10, 10)
 
+@onready var asp : AudioStreamPlayer3D = $Audio/SoundEffects/ErrorSound
+
 var current_cell := Vector3i.ZERO
 var current_rotation := 0
 var building_mode := false
 var grid_lines := []
 var cursor : MeshInstance3D
-var cube_size := Vector3(2, 2, 2) # Match to actual cube size
+var cube_size := Vector3(2, 2, 2)
+
+var y_rotations := [0, 6, 12, 18]
+var rotation_index := 0
+
+var selected_item := 0
 
 func _ready():
 	# Set GridMap cell size
@@ -22,22 +29,49 @@ func _ready():
 	
 	# Set up MeshLibrary
 	var mesh_library = MeshLibrary.new()
+	
+	# Item 0: Cube
 	var cube_mesh = BoxMesh.new()
 	cube_mesh.size = cube_size
 	mesh_library.create_item(0)
 	mesh_library.set_item_mesh(0, cube_mesh)
 	mesh_library.set_item_name(0, "Cube")
-	grid_map.mesh_library = mesh_library
+	
+	# Item 1: Sphere
+	var sphere_mesh = SphereMesh.new()
+	sphere_mesh.radius = cube_size.x / 2.0
+	mesh_library.create_item(1)
+	mesh_library.set_item_mesh(1, sphere_mesh)
+	mesh_library.set_item_name(1, "Sphere")
+	
+	# Mansion Mesh
+	var mansion_mesh = preload("res://scenes/assets/mansion-1.tscn").instantiate()
+	mesh_library.create_item(2)
+	mesh_library.set_item_mesh(2, mansion_mesh)
+	mesh_library.set_item_name(2, "Mansion-1")
+	
+	#grid_map.mesh_library = mesh_library
 	
 	# Create visuals
 	create_grid_visualization()
 	create_cursor()
-	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+
+func align_all_gridmap_models():
+	var mesh_lib = grid_map.mesh_library
+	if not mesh_lib:
+		return
+
+	for i in mesh_lib.get_item_list():
+		var mesh = mesh_lib.get_item_mesh(i)
+		if mesh:
+			var aabb = mesh.get_aabb()
+			transform.origin.y = -aabb.size.y / 2.0
+			mesh_lib.set_item_mesh_transform(i, transform)
 
 func create_cursor():
 	cursor = MeshInstance3D.new()
 	var cube = BoxMesh.new()
-	cube.size = cube_size * 0.95 # Slightly smaller for visibility
+	cube.size = cube_size * 1 # Slightly smaller for visibility
 	cube.material = cursor_material
 	cursor.mesh = cube
 	add_child(cursor)
@@ -82,19 +116,37 @@ func _input(event):
 		for line in grid_lines:
 			line.visible = building_mode
 		cursor.visible = building_mode
-		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN if building_mode else Input.MOUSE_MODE_VISIBLE)
 	
 	if event.is_action_pressed("rotate_building"):
-		current_rotation = (current_rotation + 1) % 24
+		rotate_building()
 	
 	if building_mode and event.is_action_pressed("place_building"):
 		place_block()
+		align_all_gridmap_models()
 	
 	if building_mode and event is InputEventMouseMotion:
 		update_cursor_position(event.position)
+		
+	if Input.is_action_just_pressed("push"):
+		selected_item += 1
+
+func rotate_building():
+	match current_rotation:
+		0:
+			current_rotation = 16
+		16:
+			current_rotation = 10
+		10:
+			current_rotation = 22
+		22:
+			current_rotation = 0
 
 func place_block():
-	grid_map.set_cell_item(current_cell, 0, current_rotation)
+	if grid_map.get_cell_item(current_cell) == -1:
+		grid_map.set_cell_item(current_cell, selected_item, current_rotation)
+		print(current_rotation)
+	else:
+		show_blocked_feedback()
 
 func update_cursor_position(mouse_position):
 	var ray_length = 1000
@@ -113,6 +165,19 @@ func update_cursor_position(mouse_position):
 
 		cursor.global_transform.origin = grid_map.map_to_local(current_cell)
 
+func show_blocked_feedback():
+	# Play An Error Sound
+	asp.play()
 
-func _exit_tree():
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	# Show floating text
+	var label = Label3D.new()
+	label.text = "You Cannot Build Here"
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.position = grid_map.map_to_local(current_cell) + Vector3(0, cube_size.y, 0)
+	add_child(label)
+
+	# Animate floating up and fading
+	var tween = create_tween()
+	tween.tween_property(label, "position", label.position + Vector3(0, 1, 0), 1.5)
+	tween.tween_property(label, "modulate:a", 0.0, 1.5)
+	tween.connect("finished", Callable(label, "queue_free"))
