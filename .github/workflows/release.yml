@@ -1,0 +1,47 @@
+name: Auto ZIP Release
+
+on:
+  workflow_dispatch:  # Manual trigger, can be changed to push/tags/etc.
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # Required to create releases
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Git
+        run: |
+          git fetch --tags
+
+      - name: Get latest release number
+        id: get_release_number
+        run: |
+          latest_tag=$(git tag --sort=-v:refname | grep -E '^release-[0-9]+$' | head -n 1)
+          echo "Latest tag: $latest_tag"
+          if [[ -z "$latest_tag" ]]; then
+            next_release_num=1
+          else
+            current_num=$(echo "$latest_tag" | grep -oE '[0-9]+$')
+            next_release_num=$((current_num + 1))
+          fi
+          echo "next_release_num=$next_release_num" >> $GITHUB_OUTPUT
+          echo "tag_name=release-$next_release_num" >> $GITHUB_OUTPUT
+          echo "release_title=Release #$next_release_num" >> $GITHUB_OUTPUT
+
+      - name: Create ZIP archive
+        run: |
+          zip -r release.zip . -x ".git/*"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_release_number.outputs.tag_name }}
+          name: ${{ steps.get_release_number.outputs.release_title }}
+          files: release.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
